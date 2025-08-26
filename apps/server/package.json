@@ -18,12 +18,14 @@
 		"db:down": "docker compose down"
 	},
 	"dependencies": {
+		"better-auth": "^1.3.4",
 		"dotenv": "^17.2.1",
-		"zod": "^4.0.2",
-		"hono": "^4.8.2",
 		"drizzle-orm": "^0.44.2",
+		"hono": "^4.8.2",
+		"nanoid": "^5.1.5",
 		"pg": "^8.14.1",
-		"better-auth": "^1.3.4"
+		"uuid": "^11.1.0",
+		"zod": "^4.0.2"
 	},
 	"devDependencies": {
 		"tsdown": "^0.12.9",
