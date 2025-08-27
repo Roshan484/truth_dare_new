@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { appRouter } from "./routers";
+import { startRoomCleanupJob } from "./lib/room-cronjob";
 
 const app = new Hono();
 
@@ -28,5 +29,5 @@ app.route("/api/categories", appRouter.category);
 app.route("/api/questions", appRouter.question);
 app.route("/api/rooms", appRouter.rooms);
 app.route("/api/room-member", appRouter.roomMember);
-
+startRoomCleanupJob();
 export default app;

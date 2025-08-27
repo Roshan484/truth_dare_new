@@ -49,7 +49,7 @@ const CategoryPlay = async ({
                 <p className="text-muted-foreground text-sm mb-4">
                   Join the public rooms for {slug} truth and dares.
                 </p>
-                <Link href={`/play-online/${slug}`} className="w-full">
+                <Link href={`/truth-dare/${slug}/public`} className="w-full">
                   <Button variant="outline" className="w-full font-semibold   ">
                     Play Online
                   </Button>
@@ -62,7 +62,7 @@ const CategoryPlay = async ({
                 <p className="text-muted-foreground text-sm mb-4">
                   Join the private rooms created by your friend.
                 </p>
-                <JoinRoomDialog category={slug} />
+                <JoinRoomDialog />
               </CardContent>
             </Card>
           </div>

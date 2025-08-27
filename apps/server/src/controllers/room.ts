@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { db } from "../db";
 
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, gte, sql, desc } from "drizzle-orm";
 import {
   validateCreateRoom,
   validateUpdateRoom,
@@ -445,7 +445,9 @@ export const getAllRooms = async (c: Context): Promise<Response> => {
     const isPublic = c.req.query("isPublic");
     const offset = (page - 1) * limit;
 
-    const conditions = [];
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const conditions = [gte(room.createdAt, fifteenMinutesAgo)];
+
     if (categorySlug) {
       conditions.push(eq(room.categorySlug, categorySlug));
     }
@@ -467,6 +469,7 @@ export const getAllRooms = async (c: Context): Promise<Response> => {
         creatorName: user.name,
         categoryName: category.name,
         totalPlayers: count(roomMember.id),
+        timeRemaining: sql<number>`GREATEST(0, 900 - EXTRACT(EPOCH FROM (NOW() - ${room.createdAt})))`,
       })
       .from(room)
       .leftJoin(user, eq(room.createdBy, user.id))
@@ -486,14 +489,11 @@ export const getAllRooms = async (c: Context): Promise<Response> => {
         category.name
       );
 
-    const rooms =
-      conditions.length > 0
-        ? await baseQuery
-            .where(and(...conditions))
-            .limit(limit)
-            .offset(offset)
-            .orderBy(room.createdAt)
-        : await baseQuery.limit(limit).offset(offset).orderBy(room.createdAt);
+    const rooms = await baseQuery
+      .where(and(...conditions))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(room.createdAt));
 
     const successResponse: GetAllRoomsResponse = {
       data: rooms,
