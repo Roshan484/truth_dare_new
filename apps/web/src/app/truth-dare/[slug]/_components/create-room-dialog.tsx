@@ -55,7 +55,7 @@ interface CreateRoomResponse {
 }
 
 export function CreateRoomDialog({ categorySlug }: { categorySlug: string }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [open, setOpen] = useState(false);
 
   const router = useRouter();
@@ -73,7 +73,7 @@ export function CreateRoomDialog({ categorySlug }: { categorySlug: string }) {
       name: "",
       limit: 2,
       isPublic: true,
-      createdBy: user?.id,
+      createdBy: user?.id ?? "",
       categorySlug: categorySlug,
     },
   });
@@ -130,8 +130,12 @@ export function CreateRoomDialog({ categorySlug }: { categorySlug: string }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full font-semibold">
-          Create a Room
+        <Button
+          disabled={isLoading}
+          variant="outline"
+          className="w-full font-semibold"
+        >
+          {isLoading ? "Wait a minute..." : "Create Room"}
         </Button>
       </DialogTrigger>
       <DialogContent>

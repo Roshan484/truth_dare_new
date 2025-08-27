@@ -16,6 +16,8 @@ const WaitingRoom = async ({
   );
   const data = await response.json();
 
+  console.log(data, "Waiting room");
+
   return (
     <div className="py-10">
       <WaitingRoomUI roomID={id} name={name} joinCode={data.data.joinCode} />
