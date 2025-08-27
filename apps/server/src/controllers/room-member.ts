@@ -278,7 +278,6 @@ export const leaveRoom = async (c: Context): Promise<Response> => {
       return c.json(errorResponse, 400);
     }
 
-    // Check if room exists
     const existingRoom = await db
       .select()
       .from(room)
@@ -310,7 +309,6 @@ export const leaveRoom = async (c: Context): Promise<Response> => {
       return c.json(errorResponse, 404);
     }
 
-    // Check if user is the host/creator
     if (existingMember[0].isHost || existingRoom[0].createdBy === userId) {
       const errorResponse: ApiError = {
         error:
@@ -321,7 +319,6 @@ export const leaveRoom = async (c: Context): Promise<Response> => {
       return c.json(errorResponse, 403);
     }
 
-    // Remove user from room
     await db
       .delete(roomMember)
       .where(and(eq(roomMember.roomId, roomId), eq(roomMember.userId, userId)));
