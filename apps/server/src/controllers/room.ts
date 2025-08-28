@@ -17,17 +17,33 @@ interface ApiError {
   details?: Record<string, any>;
 }
 
+interface Room {
+  id: string;
+  name: string;
+  isPublic: boolean;
+  categorySlug: string;
+  limit: number;
+  joinCode?: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  creatorName?: string;
+  categoryName?: string;
+  totalPlayers: number;
+  timeRemaining: number;
+}
+
 interface CreateRoomResponse {
   message: string;
   data: {
-    room: any;
+    room: Room;
     joinCode?: string;
   };
 }
 
 interface UpdateRoomResponse {
   message: string;
-  data: any;
+  data: Room;
 }
 
 interface DeleteRoomResponse {
@@ -35,16 +51,21 @@ interface DeleteRoomResponse {
 }
 
 interface GetRoomResponse {
-  data: any;
+  data: Room;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  offset: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  totalCount?: number;
 }
 
 interface GetAllRoomsResponse {
-  data: any[];
-  pagination: {
-    page: number;
-    limit: number;
-    offset: number;
-  };
+  data: Room[];
+  pagination: Pagination;
 }
 
 interface DatabaseError {
@@ -147,20 +168,17 @@ export const createRoom = async (c: Context): Promise<Response> => {
       }
     }
 
-    const newRoom = await db
-      .insert(room)
-      .values({
-        id: roomId,
-        name: name.toLowerCase(),
-        isPublic,
-        limit,
-        joinCode,
-        categorySlug: categorySlug,
-        createdBy,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
+    await db.insert(room).values({
+      id: roomId,
+      name: name.toLowerCase(),
+      isPublic,
+      limit,
+      joinCode,
+      categorySlug: categorySlug,
+      createdBy,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     await db.insert(roomMember).values({
       id: generateId(),
@@ -170,10 +188,47 @@ export const createRoom = async (c: Context): Promise<Response> => {
       isHost: true,
     });
 
+    // Fetch the complete room data with all joins to match Room interface
+    const completeRoomData = await db
+      .select({
+        id: room.id,
+        name: room.name,
+        isPublic: room.isPublic,
+        categorySlug: room.categorySlug,
+        limit: room.limit,
+        joinCode: room.joinCode,
+        createdBy: room.createdBy,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        creatorName: user.name,
+        categoryName: category.name,
+        totalPlayers: count(roomMember.id),
+        timeRemaining: sql<number>`GREATEST(0, 900 - EXTRACT(EPOCH FROM (NOW() - ${room.createdAt})))`,
+      })
+      .from(room)
+      .leftJoin(user, eq(room.createdBy, user.id))
+      .leftJoin(category, eq(room.categorySlug, category.slug))
+      .leftJoin(roomMember, eq(room.id, roomMember.roomId))
+      .where(eq(room.id, roomId))
+      .groupBy(
+        room.id,
+        room.name,
+        room.isPublic,
+        room.categorySlug,
+        room.limit,
+        room.joinCode,
+        room.createdBy,
+        room.createdAt,
+        room.updatedAt,
+        user.name,
+        category.name
+      )
+      .limit(1);
+
     const successResponse: CreateRoomResponse = {
       message: "Room created successfully",
       data: {
-        room: newRoom[0],
+        room: completeRoomData[0] as Room,
         ...(joinCode && { joinCode }),
       },
     };
@@ -266,23 +321,58 @@ export const updateRoom = async (c: Context): Promise<Response> => {
       }
     }
 
-    const updateData: any = {
+    const updateData: Partial<Room> = {
       updatedAt: new Date(),
     };
 
     if (name !== undefined) updateData.name = name;
     if (isPublic !== undefined) updateData.isPublic = isPublic;
+    if (categorySlug !== undefined) updateData.categorySlug = categorySlug;
     if (limit !== undefined) updateData.limit = limit;
 
-    const updatedRoom = await db
-      .update(room)
-      .set(updateData)
+    // Update the room
+    await db.update(room).set(updateData).where(eq(room.id, id));
+
+    // Fetch the complete updated room data with all joins
+    const updatedRoomData = await db
+      .select({
+        id: room.id,
+        name: room.name,
+        isPublic: room.isPublic,
+        categorySlug: room.categorySlug,
+        limit: room.limit,
+        joinCode: room.joinCode,
+        createdBy: room.createdBy,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        creatorName: user.name,
+        categoryName: category.name,
+        totalPlayers: count(roomMember.id),
+        timeRemaining: sql<number>`GREATEST(0, 900 - EXTRACT(EPOCH FROM (NOW() - ${room.createdAt})))`,
+      })
+      .from(room)
+      .leftJoin(user, eq(room.createdBy, user.id))
+      .leftJoin(category, eq(room.categorySlug, category.slug))
+      .leftJoin(roomMember, eq(room.id, roomMember.roomId))
       .where(eq(room.id, id))
-      .returning();
+      .groupBy(
+        room.id,
+        room.name,
+        room.isPublic,
+        room.categorySlug,
+        room.limit,
+        room.joinCode,
+        room.createdBy,
+        room.createdAt,
+        room.updatedAt,
+        user.name,
+        category.name
+      )
+      .limit(1);
 
     const successResponse: UpdateRoomResponse = {
       message: "Room updated successfully",
-      data: updatedRoom[0],
+      data: updatedRoomData[0] as Room,
     };
     return c.json(successResponse);
   } catch (error: unknown) {
@@ -397,20 +487,35 @@ export const getRoomById = async (c: Context): Promise<Response> => {
         id: room.id,
         name: room.name,
         isPublic: room.isPublic,
+        categorySlug: room.categorySlug,
         limit: room.limit,
         joinCode: room.joinCode,
-        categorySlug: room.categorySlug,
         createdBy: room.createdBy,
         createdAt: room.createdAt,
         updatedAt: room.updatedAt,
-
         creatorName: user.name,
         categoryName: category.name,
+        totalPlayers: count(roomMember.id),
+        timeRemaining: sql<number>`GREATEST(0, 900 - EXTRACT(EPOCH FROM (NOW() - ${room.createdAt})))`,
       })
       .from(room)
       .leftJoin(user, eq(room.createdBy, user.id))
       .leftJoin(category, eq(room.categorySlug, category.slug))
+      .leftJoin(roomMember, eq(room.id, roomMember.roomId))
       .where(eq(room.id, id))
+      .groupBy(
+        room.id,
+        room.name,
+        room.isPublic,
+        room.categorySlug,
+        room.limit,
+        room.joinCode,
+        room.createdBy,
+        room.createdAt,
+        room.updatedAt,
+        user.name,
+        category.name
+      )
       .limit(1);
 
     if (roomData.length === 0) {
@@ -423,7 +528,7 @@ export const getRoomById = async (c: Context): Promise<Response> => {
     }
 
     const successResponse: GetRoomResponse = {
-      data: roomData[0],
+      data: roomData[0] as Room,
     };
     return c.json(successResponse);
   } catch (error: unknown) {
@@ -454,6 +559,13 @@ export const getAllRooms = async (c: Context): Promise<Response> => {
     if (isPublic !== undefined) {
       conditions.push(eq(room.isPublic, isPublic === "true"));
     }
+
+    const totalCountQuery = db
+      .select({ count: count() })
+      .from(room)
+      .where(and(...conditions));
+
+    const [{ count: totalCount }] = await totalCountQuery;
 
     const baseQuery = db
       .select({
@@ -495,12 +607,19 @@ export const getAllRooms = async (c: Context): Promise<Response> => {
       .offset(offset)
       .orderBy(desc(room.createdAt));
 
+    // Calculate pagination flags
+    const hasNext = offset + limit < totalCount;
+    const hasPrev = page > 1;
+
     const successResponse: GetAllRoomsResponse = {
-      data: rooms,
+      data: rooms as Room[], // Type assertion since we know the structure matches
       pagination: {
         page,
         limit,
         offset,
+        hasNext,
+        hasPrev,
+        totalCount, // Optional: include total count
       },
     };
     return c.json(successResponse);
@@ -539,14 +658,18 @@ export const getRoomsByUser = async (c: Context): Promise<Response> => {
         createdAt: room.createdAt,
         updatedAt: room.updatedAt,
         categoryName: category.name,
+
+        creatorName: sql<string | null>`NULL`,
+        totalPlayers: sql<number>`0`,
+        timeRemaining: sql<number>`GREATEST(0, 900 - EXTRACT(EPOCH FROM (NOW() - ${room.createdAt})))`,
       })
       .from(room)
       .leftJoin(category, eq(room.categorySlug, category.slug))
       .where(eq(room.createdBy, userId))
-      .orderBy(room.createdAt);
+      .orderBy(desc(room.createdAt));
 
-    const successResponse: GetRoomResponse = {
-      data: rooms,
+    const successResponse = {
+      data: rooms as Room[],
     };
     return c.json(successResponse);
   } catch (error: unknown) {

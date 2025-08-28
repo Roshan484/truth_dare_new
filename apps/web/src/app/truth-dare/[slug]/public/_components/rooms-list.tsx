@@ -151,6 +151,14 @@ const RoomList = ({ slug }: { slug: string }) => {
     setCurrentPage(currentPage + 1);
   };
 
+  if (rooms.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No rooms found.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

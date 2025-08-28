@@ -33,7 +33,7 @@ export default function Home() {
                 Play Online <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/join">
+            <Link href="/room/classic">
               <Button size="lg" variant="outline">
                 Join Game
               </Button>
